@@ -1,27 +1,35 @@
 pipeline {
     agent any
-    tools{
-        maven 'maven-3.8.6'
+
+    tools {
+        // Install the Maven version configured as "M3" and add it to the path.
+        maven "maven-3.9.8"
     }
 
     stages {
         stage('Clone the repository') {
             steps {
-               git credentialsId: 'Github_username_password', url: 'https://github.com/techworldwithmurali/Build-and-Push-to-artifactory.git'
+                git 'https://github.com/techworldwithmurali/Build-and-Push-to-artifactory.git'
             }
         }
         
-    
-        stage('Build the code') {
+        stage('Build and test the application') {
             steps {
-            sh 'mvn clean deploy'
-                 }
-    }
-    
-    stage('Push to Nexus artifactory') {
+                sh 'mvn clean test'
+                sh 'mvn surefire-report:report'
+            }
+        }
+        
+        stage('clean-install') {
             steps {
-            nexusPublisher nexusInstanceId: 'Nexus-3', nexusRepositoryId: 'maven-snapshots', packages: [[$class: 'MavenPackage', mavenAssetList: [[classifier: '', extension: '', filePath: '/var/lib/jenkins/workspace/Build-and-Push-to-artifactory/target/web-application.war']], mavenCoordinate: [artifactId: 'web-application', groupId: 'com.techworldwithmurali', packaging: 'war', version: '1.0-SNAPSHOT']]]
-                 }
+               sh 'mvn clean install'
+            }
+        }
+
+        stage('maven deploy') {
+            steps {
+             deploy adapters: [tomcat9(credentialsId: 'Tomcat_admin', path: '', url: 'http://34.216.240.43:8080/')], contextPath: null, war: '**/*.war'
+          }    
+        }
     }
-}
 }
